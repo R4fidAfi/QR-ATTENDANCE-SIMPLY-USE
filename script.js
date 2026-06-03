@@ -86,8 +86,7 @@ form.addEventListener('submit', async (e) => {
 async function submitToSheet(data) {
     const response = await fetch(scriptUrl, {
         method: 'POST',
-        body: JSON.stringify(data),
-        headers: { 'Content-Type': 'application/json' }
+        body: JSON.stringify(data)
     });
     if (!response.ok) throw new Error('Gagal mengirim data');
 }

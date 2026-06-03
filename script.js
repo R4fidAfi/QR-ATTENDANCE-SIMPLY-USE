@@ -3,7 +3,7 @@
    ============================================ */
 
 // Ganti dengan Web App URL dari deploy Apps Script (Tahap C):
-const scriptUrl = 'https://script.google.com/macros/s/AKfycbyN7XxYjoFqL13_7paHO8xE5s2u8QWrApltfInY809tYVh5sSSf9m60aq4nUXpesCBu/exechttps://script.google.com/macros/s/AKfycbyN7XxYjoFqL13_7paHO8xE5s2u8QWrApltfInY809tYVh5sSSf9m60aq4nUXpesCBu/exec';
+const scriptUrl = 'https://script.google.com/macros/s/AKfycbyN7XxYjoFqL13_7paHO8xE5s2u8QWrApltfInY809tYVh5sSSf9m60aq4nUXpesCBu/exec';
 const SHEET_ID = '1G8r-yHSdK93-skPWnXF6Ba3rG_9vaHgBpZsmfnzbFNk';
 const SHEET_NAME = 'Responses';
 

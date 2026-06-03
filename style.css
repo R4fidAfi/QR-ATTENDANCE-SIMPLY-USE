@@ -1,0 +1,720 @@
+/* ============================================
+   STYLE - Form Absensi Workshop IoT 2024
+   ============================================ */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh; display: flex; align-items: center;
+    justify-content: center; padding: 20px;
+}
+.container {
+    background: white; border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    max-width: 500px; width: 100%; padding: 40px;
+    animation: slideUp 0.6s ease-out;
+}
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.header { text-align: center; margin-bottom: 30px; }
+.header h1 { color: #333; font-size: 28px; margin-bottom: 10px; font-weight: 700; }
+.header p { color: #888; font-size: 14px; margin-bottom: 20px; }
+.badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white; padding: 8px 16px; border-radius: 20px;
+    font-size: 12px; font-weight: 600; letter-spacing: 0.5px;
+}
+.form-group { margin-bottom: 20px; }
+label { display: block; margin-bottom: 8px; color: #333; font-weight: 600; font-size: 14px; }
+input, textarea, select {
+    width: 100%; padding: 12px 15px; border: 2px solid #e0e0e0;
+    border-radius: 10px; font-size: 14px; font-family: inherit;
+    transition: all 0.3s ease;
+}
+input:focus, textarea:focus, select:focus {
+    outline: none; border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+textarea { resize: vertical; min-height: 80px; }
+.error-message { color: #e74c3c; font-size: 12px; margin-top: 5px; display: none; }
+.error-message.show { display: block; }
+.submit-btn {
+    width: 100%; padding: 14px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white; border: none; border-radius: 10px;
+    font-size: 16px; font-weight: 700; cursor: pointer;
+    transition: all 0.3s ease; margin-top: 10px;
+}
+.submit-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4); }
+.submit-btn:active { transform: translateY(0); }
+.submit-btn.loading { opacity: 0.7; cursor: not-allowed; }
+.spinner {
+    display: inline-block; width: 16px; height: 16px;
+    border: 3px solid rgba(255, 255, 255, 0.3); border-top-color: white;
+    border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 8px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.success-message {
+    display: none; position: fixed; top: 20px; left: 50%;
+    transform: translateX(-50%); background: #27ae60; color: white;
+    padding: 15px 25px; border-radius: 10px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); z-index: 1000;
+    animation: slideDown 0.4s ease-out;
+}
+@keyframes slideDown {
+    from { opacity: 0; transform: translate(-50%, -20px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+}
+.success-message.show { display: block; }
+.success-icon { display: inline-block; margin-right: 10px; }
+.footer { text-align: center; margin-top: 20px; font-size: 12px; color: #999; }
+@media (max-width: 480px) {
+    .container { padding: 25px; }
+    .header h1 { font-size: 24px; }
+}
+📄 File 2: script.js (SHEET_ID Anda sudah saya isi)
+
+/* ============================================
+   SCRIPT - Form Absensi Workshop IoT 2024
+   ============================================ */
+
+// --- KONFIGURASI ---
+// WAJIB diisi setelah deploy Apps Script sebagai Web App:
+const scriptUrl = 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL';
+
+// Spreadsheet tujuan (sudah terisi):
+const SHEET_ID = '1G8r-yHSdK93-skPWnXF6Ba3rG_9vaHgBpZsmfnzbFNk';
+const SHEET_NAME = 'Responses';
+
+// --- ELEMEN DOM ---
+const form = document.getElementById('absensiForm');
+const submitBtn = document.getElementById('submitBtn');
+const successMessage = document.getElementById('successMessage');
+
+// --- VALIDASI FORM ---
+function validateForm() {
+    let isValid = true;
+    const nama = document.getElementById('nama').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const institusi = document.getElementById('institusi').value.trim();
+
+    if (!nama) { showError('namaError', 'Nama tidak boleh kosong'); isValid = false; }
+    else if (nama.length < 3) { showError('namaError', 'Nama minimal 3 karakter'); isValid = false; }
+    else { clearError('namaError'); }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email) { showError('emailError', 'Email tidak boleh kosong'); isValid = false; }
+    else if (!emailRegex.test(email)) { showError('emailError', 'Format email tidak valid'); isValid = false; }
+    else { clearError('emailError'); }
+
+    if (!institusi) { showError('institusiError', 'Institusi tidak boleh kosong'); isValid = false; }
+    else { clearError('institusiError'); }
+
+    return isValid;
+}
+
+function showError(elementId, message) {
+    const errorEl = document.getElementById(elementId);
+    errorEl.textContent = message;
+    errorEl.classList.add('show');
+}
+function clearError(elementId) {
+    document.getElementById(elementId).classList.remove('show');
+}
+
+// --- SUBMIT FORM ---
+form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+
+    submitBtn.disabled = true;
+    submitBtn.classList.add('loading');
+    submitBtn.innerHTML = '<span class="spinner"></span>Memproses...';
+
+    try {
+        const data = {
+            timestamp: new Date().toLocaleString('id-ID'),
+            nama: document.getElementById('nama').value.trim(),
+            email: document.getElementById('email').value.trim(),
+            institusi: document.getElementById('institusi').value.trim(),
+            kesan: document.getElementById('kesan').value.trim(),
+            status: 'pending'
+        };
+
+        await submitToSheet(data);
+
+        showSuccessMessage(`✓ Berhasil didaftar, ${data.nama}! Sertifikat akan dikirim ke ${data.email} jam 13.00`);
+        form.reset();
+
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('loading');
+        submitBtn.innerHTML = 'DAFTAR MASUK';
+
+        setTimeout(() => { successMessage.classList.remove('show'); }, 5000);
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Terjadi kesalahan: ' + error.message);
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('loading');
+        submitBtn.innerHTML = 'DAFTAR MASUK';
+    }
+});
+
+async function submitToSheet(data) {
+    const response = await fetch(scriptUrl, {
+        method: 'POST',
+        body: JSON.stringify(data),
+        headers: { 'Content-Type': 'application/json' }
+    });
+    if (!response.ok) throw new Error('Gagal mengirim data');
+}
+
+function showSuccessMessage(message) {
+    document.getElementById('successText').textContent = message;
+    successMessage.classList.add('show');
+}
+📄 File 3: form-absensi.html (versi ramping — CSS & JS sudah dipisah)
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Absensi Workshop IoT 2024</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="badge">🎯 Workshop IoT 2024</div>
+            <h1>Absensi Peserta</h1>
+            <p>Silakan isi data Anda dengan lengkap</p>
+        </div>
+
+        <form id="absensiForm">
+            <div class="form-group">
+                <label for="nama">Nama Lengkap *</label>
+                <input type="text" id="nama" name="nama" placeholder="Contoh: Budi Santoso" required>
+                <div class="error-message" id="namaError"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email *</label>
+                <input type="email" id="email" name="email" placeholder="Contoh: budi@email.com" required>
+                <div class="error-message" id="emailError"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="institusi">Asal Institusi / Perusahaan *</label>
+                <input type="text" id="institusi" name="institusi" placeholder="Contoh: Universitas ABC atau PT XYZ" required>
+                <div class="error-message" id="institusiError"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="kesan">Kesan Mengikuti Workshop (opsional)</label>
+                <textarea id="kesan" name="kesan" placeholder="Bagikan kesan Anda tentang workshop ini..."></textarea>
+            </div>
+
+            <button type="submit" class="submit-btn" id="submitBtn">DAFTAR MASUK</button>
+        </form>
+
+        <div class="footer">
+            Data Anda akan tersimpan dan sertifikat akan dikirim ke email Anda
+        </div>
+    </div>
+
+    <div class="success-message" id="successMessage">
+        <span class="success-icon">✓</span>
+        <span id="successText">Berhasil! Sertifikat akan dikirim ke email Anda jam 13.00</span>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
+Yang saya catat dari pesan Anda (untuk dipakai nanti)
+Item	Nilai
+Spreadsheet ID	1G8r-yHSdK93-skPWnXF6Ba3rG_9vaHgBpZsmfnzbFNk (sudah masuk ke script.js)
+Sertifikat di Drive (contoh)	file ID 12cM8XtHbyJXgxwWef621RDaro8Czc8C0
+Catatan: untuk Apps Script (doPost/sendCertificates) sebaiknya pakai SpreadsheetApp.openById('1G8r-yHSdK93-skPWnXF6Ba3rG_9vaHgBpZsmfnzbFNk') daripada getActiveSheet(), supaya pasti menulis ke spreadsheet yang benar. Ini akan saya rapikan saat memperbaiki backend nanti.
+
+Status & langkah berikutnya
+❌ Penulisan file via Claude sedang down (gangguan platform sementara) — itu sebabnya saya kirim manual.
+🔁 Kalau Anda mau saya yang menuliskan langsung ketiga file ini (plus update script.js/Apps Script + simpan link ke memory), tinggal ketik "coba tulis lagi" beberapa menit lagi — biasanya layanan pulih sendiri.
+Mau saya simpan juga konfig baru ini (spreadsheet + cert link) ke memory begitu layanan tulis pulih?
+
+untuk workshop nya, di tanggal 6 Juni 2026 hari sabtu, maka sesuaikan jadwal tersebut dengan kebutuhan sistem
+Workshop = Sabtu, 6 Juni 2026. Ini mengubah satu hal penting di sistem: triggernya tidak boleh "daily" lagi.
+
+Sebelum menjelaskan, saya coba apakah layanan tulis sudah pulih (sekalian update memory dengan tanggal acara).
+
+Write attendance-workshop-qr.md
+25 lines
+---
+name: attendance-workshop-qr
+description: Konsep & status sistem Absensi QR + E-Sertifikat Otomatis di folder Attendance Workshop QR
+metadata:
+  type: project
+---
+
+Project **"Absensi QR + E-Sertifikat Otomatis"** untuk acara workshop, lokasi: `C:\Users\MyBook Hype AMD\Documents\Attendance Workshop QR`. Milik organisasi **Karang Taruna / HIMASIKOM Raharja** (admin email: raharja.himasikom@gmail.com).
+
+**TANGGAL ACARA: Sabtu, 6 Juni 2026.** Sertifikat dikirim otomatis hari itu juga jam 13.00 WIB → trigger harus ONE-TIME (`.at(new Date(2026,5,6,13,0,0))`), BUKAN daily recurring. Timezone Apps Script project harus Asia/Jakarta.
+
+**Arsitektur (100% Google ecosystem, gratis, tanpa server):**
+- Frontend: `form-absensi.html` + `style.css` + `script.js` (sudah dipisah dari 1 file). Field: Nama, Email, Institusi, Kesan(opsional). Di-host di Netlify/Vercel/GitHub Pages.
+- Backend+DB: Google Apps Script `doPost()` → append ke Google Sheets. Spreadsheet ID: `1G8r-yHSdK93-skPWnXF6Ba3rG_9vaHgBpZsmfnzbFNk` (pakai `SpreadsheetApp.openById`, jangan getActiveSheet). Kolom: Timestamp, Nama, Email, Institusi, Kesan, Status, WaktuKirim, Error.
+- Automation: trigger one-time 6 Juni 2026 jam 13.00 jalankan `sendCertificates()` → loop peserta → generate sertifikat → GmailApp → update status.
+- Generator sertifikat: jalur andal = template Google Docs (.docx) `replaceText('{{NAMA}}')` & `{{TANGGAL}}` → export PDF. Contoh sertifikat di Drive file ID `12cM8XtHbyJXgxwWef621RDaro8Czc8C0` (HANYA CONTOH, JPEG flat Karang Taruna Desa Gabang 2020; real menyusul ~4-5 Juni 2026).
+
+**Yang masih KURANG / perlu diperbaiki:**
+- 🔴 `generateCertificate()` jalur PNG/JPEG masih placeholder (nama tidak tercetak). Contoh sertifikat berupa JPEG flat → butuh template Docs atau text-overlay image.
+- 🔴 `scriptUrl` di script.js masih `YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL` (diisi setelah deploy Web App).
+- 🔴 Trigger one-time 6 Juni 2026 13.00 belum di-setup (pakai fungsi `setupCertificateTrigger()`).
+- 🟡 Tidak ada deduplikasi email, notifikasi sukses "optimistic", limit Gmail ±100/hari, belum anti-spam.
+
+Lihat juga [[user-rafid-himasikom]].
+Layanan tulis sudah pulih. Saya tulis ketiga file pisahan sekarang, lalu sesuaikan trigger Apps Script untuk tanggal acara.
+
+Write style.css
+Write failed
+/* ============================================
+   STYLE - Form Absensi Workshop IoT 2024
+   ============================================ */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.container {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    max-width: 500px;
+    width: 100%;
+    padding: 40px;
+    animation: slideUp 0.6s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.header h1 {
+    color: #333;
+    font-size: 28px;
+    margin-bottom: 10px;
+    font-weight: 700;
+}
+
+.header p {
+    color: #888;
+    font-size: 14px;
+    margin-bottom: 20px;
+}
+
+.badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+label {
+    display: block;
+    margin-bottom: 8px;
+    color: #333;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+input, textarea, select {
+    width: 100%;
+    padding: 12px 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    font-size: 14px;
+    font-family: inherit;
+    transition: all 0.3s ease;
+}
+
+input:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.error-message {
+    color: #e74c3c;
+    font-size: 12px;
+    margin-top: 5px;
+    display: none;
+}
+
+.error-message.show {
+    display: block;
+}
+
+.submit-btn {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 10px;
+}
+
+.submit-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+}
+
+.submit-btn:active {
+    transform: translateY(0);
+}
+
+.submit-btn.loading {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-right: 8px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.success-message {
+    display: none;
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #27ae60;
+    color: white;
+    padding: 15px 25px;
+    border-radius: 10px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+    animation: slideDown 0.4s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -20px);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+}
+
+.success-message.show {
+    display: block;
+}
+
+.success-icon {
+    display: inline-block;
+    margin-right: 10px;
+}
+
+.footer {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 12px;
+    color: #999;
+}
+
+@media (max-width: 480px) {
+    .container {
+        padding: 25px;
+    }
+
+    .header h1 {
+        font-size: 24px;
+    }
+}
+Write script.js
+Write failed
+/* ============================================
+   SCRIPT - Form Absensi Workshop IoT 2024
+   Logika validasi & pengiriman data ke Google Apps Script
+   ============================================ */
+
+// --- KONFIGURASI ---
+// WAJIB diisi setelah deploy Apps Script sebagai Web App:
+const scriptUrl = 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL';
+
+// Spreadsheet tujuan (sudah terisi):
+const SHEET_ID = '1G8r-yHSdK93-skPWnXF6Ba3rG_9vaHgBpZsmfnzbFNk';
+const SHEET_NAME = 'Responses';
+
+// --- ELEMEN DOM ---
+const form = document.getElementById('absensiForm');
+const submitBtn = document.getElementById('submitBtn');
+const successMessage = document.getElementById('successMessage');
+
+// --- VALIDASI FORM ---
+function validateForm() {
+    let isValid = true;
+    const nama = document.getElementById('nama').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const institusi = document.getElementById('institusi').value.trim();
+
+    // Validasi nama
+    if (!nama) {
+        showError('namaError', 'Nama tidak boleh kosong');
+        isValid = false;
+    } else if (nama.length < 3) {
+        showError('namaError', 'Nama minimal 3 karakter');
+        isValid = false;
+    } else {
+        clearError('namaError');
+    }
+
+    // Validasi email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email) {
+        showError('emailError', 'Email tidak boleh kosong');
+        isValid = false;
+    } else if (!emailRegex.test(email)) {
+        showError('emailError', 'Format email tidak valid');
+        isValid = false;
+    } else {
+        clearError('emailError');
+    }
+
+    // Validasi institusi
+    if (!institusi) {
+        showError('institusiError', 'Institusi tidak boleh kosong');
+        isValid = false;
+    } else {
+        clearError('institusiError');
+    }
+
+    return isValid;
+}
+
+function showError(elementId, message) {
+    const errorEl = document.getElementById(elementId);
+    errorEl.textContent = message;
+    errorEl.classList.add('show');
+}
+
+function clearError(elementId) {
+    const errorEl = document.getElementById(elementId);
+    errorEl.classList.remove('show');
+}
+
+// --- SUBMIT FORM ---
+form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    if (!validateForm()) {
+        return;
+    }
+
+    // Set loading state
+    submitBtn.disabled = true;
+    submitBtn.classList.add('loading');
+    submitBtn.innerHTML = '<span class="spinner"></span>Memproses...';
+
+    try {
+        const data = {
+            timestamp: new Date().toLocaleString('id-ID'),
+            nama: document.getElementById('nama').value.trim(),
+            email: document.getElementById('email').value.trim(),
+            institusi: document.getElementById('institusi').value.trim(),
+            kesan: document.getElementById('kesan').value.trim(),
+            status: 'pending'
+        };
+
+        // Kirim ke Google Sheets via Google Apps Script Web App
+        await submitToSheet(data);
+
+        // Tampilkan success message
+        showSuccessMessage(`✓ Berhasil didaftar, ${data.nama}! Sertifikat akan dikirim ke ${data.email} jam 13.00`);
+
+        // Clear form
+        form.reset();
+
+        // Reset button
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('loading');
+        submitBtn.innerHTML = 'DAFTAR MASUK';
+
+        // Auto clear setelah 5 detik (untuk peserta berikutnya)
+        setTimeout(() => {
+            successMessage.classList.remove('show');
+        }, 5000);
+
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Terjadi kesalahan: ' + error.message);
+
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('loading');
+        submitBtn.innerHTML = 'DAFTAR MASUK';
+    }
+});
+
+async function submitToSheet(data) {
+    // Google Apps Script Web App Deployment
+    const response = await fetch(scriptUrl, {
+        method: 'POST',
+        body: JSON.stringify(data),
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    });
+
+    if (!response.ok) {
+        throw new Error('Gagal mengirim data');
+    }
+}
+
+function showSuccessMessage(message) {
+    const msgEl = document.getElementById('successText');
+    msgEl.textContent = message;
+    successMessage.classList.add('show');
+}
+Write form-absensi.html
+Write failed
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Absensi Workshop IoT 2024</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="badge">🎯 Workshop IoT 2024</div>
+            <h1>Absensi Peserta</h1>
+            <p>Silakan isi data Anda dengan lengkap</p>
+        </div>
+
+        <form id="absensiForm">
+            <div class="form-group">
+                <label for="nama">Nama Lengkap *</label>
+                <input
+                    type="text"
+                    id="nama"
+                    name="nama"
+                    placeholder="Contoh: Budi Santoso"
+                    required
+                >
+                <div class="error-message" id="namaError"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email *</label>
+                <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    placeholder="Contoh: budi@email.com"
+                    required
+                >
+                <div class="error-message" id="emailError"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="institusi">Asal Institusi / Perusahaan *</label>
+                <input
+                    type="text"
+                    id="institusi"
+                    name="institusi"
+                    placeholder="Contoh: Universitas ABC atau PT XYZ"
+                    required
+                >
+                <div class="error-message" id="institusiError"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="kesan">Kesan Mengikuti Workshop (opsional)</label>
+                <textarea
+                    id="kesan"
+                    name="kesan"
+                    placeholder="Bagikan kesan Anda tentang workshop ini..."
+                ></textarea>
+            </div>
+
+            <button type="submit" class="submit-btn" id="submitBtn">
+                DAFTAR MASUK
+            </button>
+        </form>
+
+        <div class="footer">
+            Data Anda akan tersimpan dan sertifikat akan dikirim ke email Anda
+        </div>
+    </div>
+
+    <div class="success-message" id="successMessage">
+        <span class="success-icon">✓</span>
+        <span id="successText">Berhasil! Sertifikat akan dikirim ke email Anda jam 13.00</span>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
+Classifier masih berkedip. Saya baca ulang form-absensi.html lalu retry ketiganya.
+
+Read form-absensi.html

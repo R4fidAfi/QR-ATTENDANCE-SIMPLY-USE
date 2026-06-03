@@ -3,38 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Absensi Workshop HIMASIKOM</title>
+    <title>Absensi · Workshop HIMASIKOM</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
+    <!-- Dekorasi background -->
+    <div class="bg-grid"></div>
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+
+    <main class="container">
         <div class="header">
-            <div class="badge">🎯 Workshop HIMASIKOM</div>
-            <h1>Absensi Peserta</h1>
-            <p>Silakan isi data Anda secara lengkap</p>
+            <div class="logo-wrap">
+                <span class="logo-ring"></span>
+                <img src="himasikom.jpg" alt="Logo HIMASIKOM Universitas Raharja" class="logo">
+            </div>
+            <h1 class="title">Workshop <span>HIMASIKOM</span></h1>
+            <p class="subtitle">Wireflow — Where IoT Meets Automation</p>
+            <div class="divider"></div>
         </div>
 
-        <form id="absensiForm">
+        <div class="announcement">
+            <span class="announcement-icon">✍️</span>
+            <p><strong>Tulis Nama Lengkap dengan teliti &amp; benar.</strong> Nama yang Anda input akan dicetak langsung pada e-sertifikat — pastikan ejaan dan huruf kapitalnya sudah tepat.</p>
+        </div>
+
+        <form id="absensiForm" novalidate>
             <div class="form-group">
-                <label for="nama">Nama Lengkap *</label>
-                <input type="text" id="nama" name="nama" placeholder="John Doe" required>
+                <label for="nama">Nama Lengkap <span class="req">*</span></label>
+                <input type="text" id="nama" name="nama" placeholder="Contoh: Rafid Afiyanto" required>
                 <div class="error-message" id="namaError"></div>
             </div>
 
             <div class="form-group">
-                <label for="email">Email *</label>
-                <input type="email" id="email" name="email" placeholder="raharja@himasikom.xyz" required>
+                <label for="email">Email <span class="req">*</span></label>
+                <input type="email" id="email" name="email" placeholder="nama@email.com" required>
                 <div class="error-message" id="emailError"></div>
             </div>
 
             <div class="form-group">
-                <label for="institusi">Asal Institusi / Perusahaan *</label>
-                <input type="text" id="institusi" name="institusi" placeholder="Raharja University atau PT. Kecap" required>
+                <label for="institusi">Asal Institusi / Perusahaan <span class="req">*</span></label>
+                <input type="text" id="institusi" name="institusi" placeholder="Universitas Raharja / PT XYZ" required>
                 <div class="error-message" id="institusiError"></div>
             </div>
 
             <div class="form-group">
-                <label for="kategori">Kategori *</label>
+                <label for="kategori">Kategori <span class="req">*</span></label>
                 <select id="kategori" name="kategori" required>
                     <option value="" disabled selected>-- Pilih kategori --</option>
                     <option value="NARASUMBER">Narasumber</option>
@@ -46,7 +64,7 @@
             </div>
 
             <div class="form-group">
-                <label for="kesan">Kesan Mengikuti Workshop (opsional)</label>
+                <label for="kesan">Kesan Mengikuti Workshop <span style="color:var(--muted);font-weight:500">(opsional)</span></label>
                 <textarea id="kesan" name="kesan" placeholder="Bagikan kesan Anda tentang workshop ini..."></textarea>
             </div>
 
@@ -54,13 +72,13 @@
         </form>
 
         <div class="footer">
-            Data Anda akan tersimpan dan sertifikat akan dikirim ke email Anda
+            🔒 Data Anda tersimpan aman · E-sertifikat dikirim otomatis ke email
         </div>
-    </div>
+    </main>
 
     <div class="success-message" id="successMessage">
         <span class="success-icon">✓</span>
-        <span id="successText">Berhasil! Sertifikat akan dikirim ke email Anda jam 13.00</span>
+        <span id="successText">Berhasil! Sertifikat akan dikirim ke email Anda.</span>
     </div>
 
     <script src="script.js"></script>

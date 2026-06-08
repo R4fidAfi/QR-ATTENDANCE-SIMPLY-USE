@@ -1,0 +1,286 @@
+/**
+ *  ABSENSI WORKSHOP HIMASIKOM + AUTO E-SERTIFIKAT (per kategori)
+ *  Acara: Sabtu, 6 Juni 2026 · Kirim sertifikat 13.00 WIB
+ *  Tema : "Wireflow - Where IoT Meets Automation"
+ *
+ *  SETUP: paste di Apps Script → isi INSTAGRAM → set timezone Asia/Jakarta
+ *         → Deploy Web App (Execute as: Me | Access: Anyone)
+ *         → jalankan setupCertificateTrigger() 1x
+ *  UPDATE: Ditambah nomor otomatis per kategori ({{NOMOR}} di Slides)
+ *          Nomor format 001, 002, dst. Hanya untuk PESERTA, PANITIA, MEDIA PARTNER.
+ *          Narasumber tidak pakai nomor.
+ */
+
+/* ============================================
+   CONFIG
+   ============================================ */
+const CONFIG = {
+  SHEET_ID:        'your_id',
+  SHEET_NAME:      'responses',
+  ADMIN_EMAIL:     'your email',
+  EVENT_NAME:      'Workshop HIMASIKOM',
+  EVENT_DATE_TEXT: 'Sabtu, 6 Juni 2026',
+  SENDER_NAME:     'Panitia Workshop HIMASIKOM',
+  INSTAGRAM:       '@himasikom_rhj',          // <- GANTI dengan handle IG asli
+  TIMEZONE:        'Asia/Jakarta',
+  REALTIME_SEND:   true,  // <- True = kirim langsung, False = kirim sesuai jadwal
+
+  // Template Google Slides per kategori, diambil id nya (sudah terisi)
+  TEMPLATES: {
+    'NARASUMBER':    'your_id',
+    'PANITIA':       'your_id',
+    'PESERTA':       'your_id',
+    'MEDIA PARTNER': 'your_id'
+  }
+};
+
+// Urutan kolom (0-indexed) — Ditambah NOMOR di kolom J
+const COL = { 
+  TIMESTAMP:0, 
+  NAMA:1, 
+  EMAIL:2, 
+  INSTITUSI:3, 
+  KATEGORI:4, 
+  KESAN:5, 
+  STATUS:6, 
+  SENT_TIME:7, 
+  ERROR:8,
+  NOMOR:9
+};
+
+/* ============================================
+   PART 1 — TERIMA DATA FORM
+   ============================================ */
+function doPost(e) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const data = JSON.parse(e.postData.contents);
+    const sheet = getSheet_();
+    const kategori = String(data.kategori || '').toUpperCase().trim();
+
+    // Anti-duplikat (email sama tidak didaftar 2x)
+    if (isEmailRegistered_(sheet, data.email)) {
+      return jsonOut_({ success: true, message: 'Email ini sudah terdaftar sebelumnya' });
+    }
+
+    // Hitung nomor otomatis per kategori
+    const nomor = getNextNumber_(kategori);
+
+    // Simpan baris baru
+    sheet.appendRow([
+      Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'yyyy-MM-dd HH:mm:ss'),
+      data.nama, 
+      data.email, 
+      data.institusi, 
+      kategori,
+      data.kesan || '', 
+      'pending', 
+      '', 
+      '',
+      nomor                     // Kolom NOMOR
+    ]);
+    const row = sheet.getLastRow();
+
+    // === MODE REALTIME: langsung buat & kirim sertifikat saat submit ===
+    if (CONFIG.REALTIME_SEND) {
+      try {
+        const pdf = generateCertificate(data.nama, kategori, nomor);
+        GmailApp.sendEmail(data.email, 'E-Sertifikat ' + CONFIG.EVENT_NAME, createEmailBody(data.nama), {
+          attachments: [pdf], 
+          name: CONFIG.SENDER_NAME
+        });
+        sheet.getRange(row, COL.STATUS + 1).setValue('sent');
+        sheet.getRange(row, COL.SENT_TIME + 1).setValue(
+          Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'yyyy-MM-dd HH:mm:ss'));
+        return jsonOut_({ success: true, message: 'Terdaftar & e-sertifikat terkirim' });
+      } catch (certErr) {
+        sheet.getRange(row, COL.STATUS + 1).setValue('failed');
+        sheet.getRange(row, COL.ERROR + 1).setValue(certErr.toString());
+        return jsonOut_({ success: false, error: 'Data tersimpan, tapi gagal kirim sertifikat: ' + certErr });
+      }
+    }
+
+    // === MODE TERJADWAL: cuma simpan ===
+    return jsonOut_({ success: true, message: 'Data berhasil disimpan' });
+
+  } catch (err) {
+    return jsonOut_({ success: false, error: err.toString() });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function doGet() { 
+  return jsonOut_({ success: true, message: 'Web App aktif' }); 
+}
+
+/* ============================================
+   PART 2 — KIRIM SERTIFIKAT (Scheduled)
+   ============================================ */
+function sendCertificates() {
+  const sheet = getSheet_();
+  const data = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const nama = row[COL.NAMA], 
+          email = row[COL.EMAIL],
+          kategori = row[COL.KATEGORI], 
+          status = row[COL.STATUS],
+          existingNomor = row[COL.NOMOR];
+
+    if (status === 'sent' || !nama || !email) continue;
+
+    // Gunakan nomor yang sudah ada atau buat yang baru
+    const nomor = existingNomor || getNextNumber_(kategori);
+
+    try {
+      const pdf = generateCertificate(nama, kategori, nomor);
+      GmailApp.sendEmail(email, 'E-Sertifikat ' + CONFIG.EVENT_NAME, createEmailBody(nama), {
+        attachments: [pdf], 
+        name: CONFIG.SENDER_NAME
+      });
+      
+      sheet.getRange(i + 1, COL.STATUS + 1).setValue('sent');
+      sheet.getRange(i + 1, COL.SENT_TIME + 1).setValue(
+        Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'yyyy-MM-dd HH:mm:ss'));
+      sheet.getRange(i + 1, COL.NOMOR + 1).setValue(nomor);  // Simpan nomor
+      
+      Logger.log('✓ Terkirim (' + kategori + ' #' + nomor + '): ' + email);
+    } catch (err) {
+      sheet.getRange(i + 1, COL.STATUS + 1).setValue('failed');
+      sheet.getRange(i + 1, COL.ERROR + 1).setValue(err.toString());
+      Logger.log('✗ Gagal ' + email + ': ' + err);
+    }
+  }
+  sendAdminNotification(sheet);
+}
+
+function setupCertificateTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'sendCertificates') ScriptApp.deleteTrigger(t);
+  });
+  const when = new Date(2026, 5, 6, 13, 0, 0); // Juni = 5
+  ScriptApp.newTrigger('sendCertificates').timeBased().at(when).create();
+  Logger.log('✓ Trigger dibuat untuk: ' + when);
+}
+
+/* ============================================
+   PART 3 — GENERATE SERTIFIKAT + NOMOR
+   ============================================ */
+function generateCertificate(nama, kategori, nomor) {
+  const templateId = getTemplateId_(kategori);
+  const copyId = DriveApp.getFileById(templateId)
+                         .makeCopy('Sertifikat - ' + kategori + ' - ' + nama).getId();
+  try {
+    const deck = SlidesApp.openById(copyId);
+    deck.replaceAllText('{{NAMA}}', nama);
+    deck.replaceAllText('{{KATEGORI}}', kategori);
+    deck.replaceAllText('{{TANGGAL}}', CONFIG.EVENT_DATE_TEXT);
+    deck.replaceAllText('{{NOMOR}}', nomor || '');   // <-- Isi nomor otomatis
+    deck.saveAndClose();
+
+    const pdf = DriveApp.getFileById(copyId).getAs(MimeType.PDF);
+    pdf.setName('Sertifikat_' + kategori + '_' + nama + '.pdf');
+    return pdf;
+  } finally {
+    DriveApp.getFileById(copyId).setTrashed(true);
+  }
+}
+
+function getTemplateId_(kategori) {
+  const key = String(kategori || '').toUpperCase().trim();
+  const id = CONFIG.TEMPLATES[key];
+  if (!id) throw new Error('Template untuk kategori "' + kategori + '" tidak ditemukan');
+  return id;
+}
+
+// Hitung nomor otomatis PER KATEGORI
+function getNextNumber_(kategori) {
+  if (!kategori || kategori === 'NARASUMBER') return '';
+  
+  const sheet = getSheet_();
+  const data = sheet.getDataRange().getValues();
+  let count = 0;
+  const target = String(kategori).toUpperCase().trim();
+  
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][COL.KATEGORI]).toUpperCase().trim() === target) {
+      count++;
+    }
+  }
+  return String(count + 1).padStart(3, '0');
+}
+
+/* ============================================
+   PART 4 — TEMPLATE EMAIL
+   ============================================ */
+function createEmailBody(nama) {
+  return `Halo ${nama},
+
+Terima kasih telah mengikuti kegiatan ${CONFIG.EVENT_NAME}. Kami sangat mengapresiasi partisipasi dan antusiasme Anda.
+
+Semoga ilmu serta pengalaman yang dibagikan selama workshop dapat bermanfaat dan terus berguna bagi Anda ke depannya.
+
+Sebagai bentuk apresiasi, kami lampirkan e-sertifikat Anda dalam format PDF pada email ini.
+
+Jangan lupa follow Instagram kami ${CONFIG.INSTAGRAM} untuk mendapatkan informasi terbaru seputar kegiatan dan program HIMASIKOM!
+
+Salam hangat,
+${CONFIG.SENDER_NAME}
+
+---
+Email otomatis — mohon tidak membalas email ini.`;
+}
+
+/* ============================================
+   PART 5 — NOTIFIKASI ADMIN
+   ============================================ */
+function sendAdminNotification(sheet) {
+  const data = sheet.getDataRange().getValues();
+  let sent = 0, failed = 0, pending = 0;
+  for (let i = 1; i < data.length; i++) {
+    const s = data[i][COL.STATUS];
+    if (s === 'sent') sent++; 
+    else if (s === 'failed') failed++; 
+    else if (s === 'pending') pending++;
+  }
+  const body =
+`Laporan Pengiriman Sertifikat — ${CONFIG.EVENT_NAME}
+
+✓ Berhasil : ${sent}
+✗ Gagal    : ${failed}
+• Pending  : ${pending}
+
+Waktu : ${Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'yyyy-MM-dd HH:mm:ss')}`;
+  GmailApp.sendEmail(CONFIG.ADMIN_EMAIL, 'Laporan Pengiriman Sertifikat', body);
+}
+
+/* ============================================
+   HELPER & TEST
+   ============================================ */
+function getSheet_() {
+  const ss = SpreadsheetApp.openById(CONFIG.SHEET_ID);
+  return CONFIG.SHEET_NAME ? ss.getSheetByName(CONFIG.SHEET_NAME) : ss.getSheets()[0];
+}
+
+function isEmailRegistered_(sheet, email) {
+  if (!email || sheet.getLastRow() < 2) return false;
+  const emails = sheet.getRange(2, COL.EMAIL + 1, sheet.getLastRow() - 1, 1).getValues();
+  return emails.some(r => String(r[0]).trim().toLowerCase() === String(email).trim().toLowerCase());
+}
+
+function jsonOut_(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function testSendCertificates() { sendCertificates(); }
+function getStatistics() {
+  const data = getSheet_().getDataRange().getValues();
+  let sent=0, pending=0, failed=0;
+  for (let i=1;i<data.length;i++){const s=data[i][COL.STATUS];
+    if(s==='sent')sent++;else if(s==='pending')pending++;else if(s==='failed')failed++;}
+  const stats={total:data.length-1, sent, pending, failed};
+  Logger.log(JSON.stringify(stats)); return stats;
+}
